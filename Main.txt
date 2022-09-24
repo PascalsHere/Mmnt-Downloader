@@ -1,0 +1,124 @@
+@@statistics_TextBlock: '2'
+@@statistics_Input_Text: '1'
+@@statistics_Input_Number: '1'
+@@statistics_Input_ChoiceSet: '1'
+@@statistics_Input_File: '1'
+@@statistics_Action_Submit: '1'
+Display.ShowCustomDialog CardTemplateJson: '''{
+  \"type\": \"AdaptiveCard\",
+  \"version\": \"1.4\",
+  \"id\": \"AdaptiveCard\",
+  \"backgroundImage\": \"${AdaptiveCard_Url}\",
+  \"body\": [
+    {
+      \"type\": \"TextBlock\",
+      \"id\": \"Text block\",
+      \"text\": \"${Text_block_Text}\"
+    },
+    {
+      \"type\": \"Input.Text\",
+      \"id\": \"SearchTerm\",
+      \"value\": \"${SearchTerm_Value}\",
+      \"label\": \"${SearchTerm_Label}\",
+      \"spacing\": \"medium\",
+      \"separator\": true
+    },
+    {
+      \"type\": \"Input.Number\",
+      \"id\": \"PageScrp\",
+      \"value\": 15214.0,
+      \"min\": 1.0,
+      \"isRequired\": true,
+      \"label\": \"${PageScrp_Label}\",
+      \"errorMessage\": \"${PageScrp_ErrorMessage}\"
+    },
+    {
+      \"type\": \"Input.ChoiceSet\",
+      \"id\": \"Options\",
+      \"value\": \"\",
+      \"style\": \"expanded\",
+      \"isMultiSelect\": true,
+      \"choices\": [
+        {
+          \"title\": \"Download FTP Files Once Found\",
+          \"value\": \"FTP\"
+        }
+      ],
+      \"label\": \"${Options_Label}\",
+      \"errorMessage\": \"${Options_ErrorMessage}\",
+      \"height\": \"stretch\"
+    },
+    {
+      \"type\": \"Input.File\",
+      \"id\": \"ListFile\",
+      \"value\": \"${ListFile_Value}\",
+      \"isRequired\": true,
+      \"label\": \"${ListFile_Label}\",
+      \"errorMessage\": \"${ListFile_ErrorMessage}\",
+      \"separator\": true
+    },
+    {
+      \"type\": \"TextBlock\",
+      \"id\": \"Text block2\",
+      \"weight\": \"bolder\",
+      \"color\": \"attention\",
+      \"italic\": true,
+      \"text\": \"${Text_block2_Text}\",
+      \"wrap\": true,
+      \"separator\": true
+    }
+  ],
+  \"actions\": [
+    {
+      \"type\": \"Action.Submit\",
+      \"id\": \"Submit\",
+      \"title\": \"${Submit_Title}\"
+    }
+  ],
+  \"FormTitle\": \"${AdaptiveCard_FormTitle}\"
+}''' CustomFormData=> CustomFormData ButtonPressed=> ButtonPressed @AdaptiveCard_FormTitle: $'''Search,Download,FTP''' @AdaptiveCard_Url: $'''https://img.freepik.com/free-vector/abstract-watercolor-pastel-background_87374-122.jpg?w=2000''' @Text_block_Text: $'''Downloads/Lists FTP Files from Mmnt.ru''' @SearchTerm_Label: $'''Search Term''' @SearchTerm_Value: $'''.rm''' @PageScrp_Label: $'''Pages to Scrape''' @PageScrp_ErrorMessage: $'''Make sure it\'s 1 or more please.''' @Options_Label: $'''Options''' @Options_ErrorMessage: $'''Must select one.''' @ListFile_Label: $'''List Log:''' @ListFile_Value: $'''C:/somewhere/log.txt''' @ListFile_ErrorMessage: $'''You need a a log file.''' @Text_block2_Text: $'''You will be selecting the FTP download folder next''' @Submit_Title: $'''Submit'''
+Display.SelectFolder Description: $'''Select FTP download location!''' IsTopMost: True SelectedFolder=> FTPFld ButtonPressed=> ButtonPressed2
+IF (File.IfFile.Exists File: $'''%FTPFld%\\wget-for-windows\\wget.exe''') THEN
+    GOTO PreDownloaded
+END
+IF NotContains(CustomFormData['Options'], $'''FTP''', True) THEN
+    GOTO PreDownloaded
+END
+Web.DownloadFromWeb.DownloadToFolder Url: $'''https://drive.google.com/uc?export=download&id=1oEPlLfGB7As0bLMVX3Qkhvr9bd8QyIR7''' DestinationFolder: FTPFld ConnectionTimeout: 30 FollowRedirection: True ClearCookies: False UserAgent: $'''Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.8.1.21) Gecko/20100312 Firefox/3.6''' Encoding: Web.Encoding.AutoDetect AcceptUntrustedCertificates: False DownloadedFile=> DownloadedFile
+Compression.UnzipFiles ArchivePath: $'''%FTPFld%\\wget-for-windows.zip''' DestinationFolder: $'''%FTPFld%\\wget-for-windows\\'''
+Display.ShowMessageDialog.ShowMessageWithTimeout Title: $'''Downloaded''' Message: $'''Downloaded wget for windows! (for ftp downloads Make sure to read its license. It\'s at %FTPFld%\\wget-for-windows\\readme2.txt''' Icon: Display.Icon.Information Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: True Timeout: 3 ButtonPressed=> ButtonPressed3
+# Download wget-for-windows for ftp downloads (https://github.com/lifenjoiner/wget-for-windows) It is under the https://www.gnu.org/licenses/gpl-3.0.en.html license, As well as this is. I repacked it so you could extract, On the github it is in 7z.
+LABEL PreDownloaded
+WebAutomation.LaunchFirefox.LaunchFirefox Url: $'''https://www.mmnt.ru/int/get?st=%CustomFormData['SearchTerm']%''' WindowState: WebAutomation.BrowserWindowState.Maximized ClearCache: False ClearCookies: False WaitForPageToLoadTimeout: 60 Timeout: 60 BrowserInstance=> Browser
+Text.ToNumber Text: CustomFormData['PageScrp'] Number=> loopd
+# Vars Set
+LOOP LoopIndex1 FROM 1 TO loopd STEP 1
+    WebAutomation.ExtractData.ExtractList BrowserInstance: Browser Control: $'''html > body > div:eq(0) > table''' ExtractionParameters: {[$'''tbody > tr:eq(0) > td:eq(1)''', $'''Own Text''', $''''''] } PostProcessData: False TimeoutInSeconds: 60 ExtractedData=> DataFromWebPage
+    Text.RecognizeEntitiesInText Text: DataFromWebPage Mode: Text.RecognizerMode.Url Language: Text.RecognizerLanguage.English RecognizedEntities=> DataFromWebPage
+    Variables.RetrieveDataTableColumnIntoList DataTable: DataFromWebPage ColumnNameOrIndex: 1 ColumnAsList=> DataF
+    Variables.RemoveDuplicateItemsFromList List: DataF IgnoreCase: False
+    Text.Trim Text: DataF TrimOption: Text.TrimOption.Both TrimmedText=> DataF
+    File.WriteText File: CustomFormData['ListFile'] TextToWrite: DataF AppendNewLine: True IfFileExists: File.IfFileExists.Append Encoding: File.FileEncoding.Unicode
+    SET ftpon TO 0
+    Text.ToNumber Text: ftpon Number=> ftpon
+    IF CustomFormData['Options'] = $'''FTP''' THEN
+        LOOP LoopIndex FROM 0 TO 20 STEP 1
+            Cmd.Open.Open Directory: $'''%FTPFld%/wget-for-windows/''' Session=> CmdSession
+            Cmd.Write Session: CmdSession Command: $'''wget.exe -P %FTPFld%\\ %DataFromWebPage[ftpon][1]%''' SendEnter: True
+            Cmd.WaitForText Session: CmdSession Text: $'''saved''' IsRegEx: False IgnoreCase: True Timeout: 60
+                        ON ERROR
+            
+                        END
+            Variables.IncreaseVariable Value: ftpon IncrementValue: 1
+        END
+        Cmd.Close Session: CmdSession
+    END
+    # Extract, Format & Save
+    LOOP LoopIndex FROM 0 TO 2 STEP 1
+        MouseAndKeyboard.SendMouseClick.ClickAt ClickType: MouseAndKeyboard.MouseClickType.LeftClick MillisecondsDelay: 0 X: 1910 Y: 1010 RelativeTo: MouseAndKeyboard.PositionRelativeTo.Screen MovementStyle: MouseAndKeyboard.MovementStyle.Instant
+        # Might have to change this if screen is different size, Set it to the very bottom of the scroll bar (the part not dark gray).
+    END
+    MouseAndKeyboard.SendMouseClick.ClickAt ClickType: MouseAndKeyboard.MouseClickType.LeftClick MillisecondsDelay: 0 X: 18 Y: 982 RelativeTo: MouseAndKeyboard.PositionRelativeTo.Screen MovementStyle: MouseAndKeyboard.MovementStyle.Instant
+    # Again might have to change if screen size is different, On mmnt.ru set it to where the "+01" is at the BOTTOM of the page. NOT THE TOP ONE.
+    # Next Page
+END
