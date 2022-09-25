@@ -90,6 +90,18 @@ Display.ShowMessageDialog.ShowMessageWithTimeout Title: $'''Downloaded''' Messag
 # Download wget-for-windows for ftp downloads (https://github.com/lifenjoiner/wget-for-windows) It is under the https://www.gnu.org/licenses/gpl-3.0.en.html license, As well as this is. I repacked it so you could extract, On the github it is in 7z.
 LABEL PreDownloaded
 WebAutomation.LaunchFirefox.LaunchFirefox Url: $'''https://www.mmnt.ru/int/get?st=%CustomFormData['SearchTerm']%''' WindowState: WebAutomation.BrowserWindowState.Maximized ClearCache: False ClearCookies: False WaitForPageToLoadTimeout: 60 Timeout: 60 BrowserInstance=> Browser
+ON ERROR LaunchFirefoxError
+    SET nofire TO 69
+    THROW ERROR
+END
+IF nofire = 69 THEN
+    Web.DownloadFromWeb.DownloadToFolder Url: $'''https://download.mozilla.org/?product=firefox-latest-ssl&os=win64&lang=en-US''' DestinationFolder: FTPFld ConnectionTimeout: 30 FollowRedirection: True ClearCookies: False UserAgent: $'''Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.8.1.21) Gecko/20100312 Firefox/3.6''' Encoding: Web.Encoding.AutoDetect AcceptUntrustedCertificates: False DownloadedFile=> DownloadedFile2
+    Cmd.Open.Open Directory: FTPFld Session=> CmdSession2
+    Cmd.Write Session: CmdSession2 Command: $'''%DownloadedFile2% /S''' SendEnter: True
+    Cmd.Close Session: CmdSession2
+    Variables.IncreaseVariable Value: nofire IncrementValue: 1
+    GOTO PreDownloaded
+END
 Text.ToNumber Text: CustomFormData['PageScrp'] Number=> loopd
 # Vars Set
 LOOP LoopIndex1 FROM 1 TO loopd STEP 1
@@ -97,6 +109,7 @@ LOOP LoopIndex1 FROM 1 TO loopd STEP 1
     Text.RecognizeEntitiesInText Text: DataFromWebPage Mode: Text.RecognizerMode.Url Language: Text.RecognizerLanguage.English RecognizedEntities=> DataFromWebPage
     Variables.RetrieveDataTableColumnIntoList DataTable: DataFromWebPage ColumnNameOrIndex: 1 ColumnAsList=> DataF
     Variables.RemoveDuplicateItemsFromList List: DataF IgnoreCase: False
+    Text.Replace Text: DataF TextToFind: $'''^(?!.*.rm.*).+$''' IsRegEx: True IgnoreCase: False ReplaceWith: $'''\\n''' ActivateEscapeSequences: True Result=> DataF
     Text.Trim Text: DataF TrimOption: Text.TrimOption.Both TrimmedText=> DataF
     File.WriteText File: CustomFormData['ListFile'] TextToWrite: DataF AppendNewLine: True IfFileExists: File.IfFileExists.Append Encoding: File.FileEncoding.Unicode
     SET ftpon TO 0
@@ -105,6 +118,8 @@ LOOP LoopIndex1 FROM 1 TO loopd STEP 1
         LOOP LoopIndex FROM 0 TO 20 STEP 1
             Cmd.Open.Open Directory: $'''%FTPFld%/wget-for-windows/''' Session=> CmdSession
             Cmd.Write Session: CmdSession Command: $'''wget.exe -P %FTPFld%\\ %DataFromWebPage[ftpon][1]%''' SendEnter: True
+                        ON ERROR REPEAT 5 TIMES WAIT 1
+                        END
             Cmd.WaitForText Session: CmdSession Text: $'''saved''' IsRegEx: False IgnoreCase: True Timeout: 60
                         ON ERROR
             
